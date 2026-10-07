@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#D0BCFF</color>
+    <color name="toolbar_background">#2A1240</color>
+
+    <color name="display_background">#1C1B1F</color>
+    <color name="display_text">#E6E1E5</color>
+    <color name="display_hint">#625B71</color>
+    <color name="display_divider">#4A4458</color>
+    <color name="result_text">#E6E1E5</color>
+    <color name="result_preview">#938F99</color>
+    <color name="result_error">#F2B8B5</color>
+
+    <color name="keypad_background">#2E2438</color>
+    <color name="function_background">#3B2E48</color>
+    <color name="key_text">#E6E1E5</color>
+    <color name="function_text">#D0BCFF</color>
+</resources>

@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Калькулятор</string>
+    <string name="expression_hint">0</string>
+    <string name="result_format">= %1$s</string>
+    <string name="angle_mode_rad">RAD</string>
+    <string name="angle_mode_deg">DEG</string>
+    <string name="backspace">Удалить символ</string>
+    <string name="expression_too_long">Слишком длинное выражение</string>
+</resources>

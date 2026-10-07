@@ -1,0 +1,47 @@
+<resources>
+    <style name="Theme.Calculator" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand</item>
+    </style>
+
+    <!-- Общий стиль клавиш: плоские кнопки, которые вместе образуют сетку. -->
+    <style name="CalcKey" parent="Widget.Material3.Button.TextButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:padding">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="cornerRadius">0dp</item>
+        <item name="android:textSize">@dimen/key_text_size</item>
+        <item name="android:textColor">@color/key_text</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="iconTint">@color/key_text</item>
+        <item name="iconPadding">0dp</item>
+        <item name="iconGravity">textStart</item>
+    </style>
+
+    <style name="CalcKey.Function">
+        <item name="android:textSize">@dimen/function_text_size</item>
+        <item name="android:textColor">@color/function_text</item>
+        <item name="backgroundTint">@color/function_background</item>
+    </style>
+
+    <style name="CalcKey.Equals">
+        <item name="android:textColor">@color/equals_text</item>
+        <item name="backgroundTint">@color/equals_background</item>
+    </style>
+
+    <!-- Поля дисплея: размер шрифта подстраивается под длину выражения. -->
+    <style name="CalcDisplay">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">0dp</item>
+        <item name="android:background">@color/display_background</item>
+        <item name="android:paddingHorizontal">16dp</item>
+        <item name="android:paddingVertical">8dp</item>
+        <item name="autoSizeTextType">uniform</item>
+        <item name="autoSizeMinTextSize">14sp</item>
+        <item name="autoSizeStepGranularity">1sp</item>
+    </style>
+</resources>

@@ -1,0 +1,4 @@
+<resources>
+    <dimen name="key_text_size">26sp</dimen>
+    <dimen name="function_text_size">17sp</dimen>
+</resources>

@@ -25,6 +25,7 @@
 | `app/src/main/res/values/` | Строки, цвета, стили кнопок (`values-night` — тёмная тема) |
 | `app/src/test/.../ExpressionEvaluatorTest.java` | Unit-тесты вычислителя |
 | `docs/answers.md` | Ответы на контрольные вопросы |
+| `docs/code-explained.md` | Подробный разбор кода и вопросы по теории для защиты |
 
 ---
 

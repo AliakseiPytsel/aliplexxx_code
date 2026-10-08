@@ -26,6 +26,7 @@
 | `app/src/test/.../ExpressionEvaluatorTest.java` | Unit-тесты вычислителя |
 | `docs/answers.md` | Ответы на контрольные вопросы |
 | `docs/code-explained.md` | Подробный разбор кода и вопросы по теории для защиты |
+| `docs/lab2-razbor-koda.docx` | То же самое + ответы на вопросы в формате Word |
 
 ---
 

@@ -29,6 +29,7 @@
 5. **Написали `MainActivity`:** обработку нажатий, ввод, вывод результата, сохранение при повороте.
 6. **Написали unit-тесты** для вычислителя и прогнали их: все 8 прошли.
 7. **Написали README**, инструкцию для Mac, ответы на вопросы и Word-файлы.
+8. **Добавили историю вычислений:** она видна в портретной ориентации над выражением и в окне «История» (кнопка на верхней панели), сохраняется при повороте в Bundle как `ArrayList<String>`. Восстановление идёт в `onCreate` с проверкой `savedInstanceState != null`.
 
 ---
 
@@ -44,6 +45,7 @@ app/src/main/
 └── res/
     ├── layout/activity_main.xml       ← разметка (портрет)
     ├── layout-land/activity_main.xml  ← разметка (альбом)
+    ├── menu/main_menu.xml             ← кнопка «История» на верхней панели
     └── values/                        ← строки, цвета, стили
 ```
 
@@ -67,23 +69,31 @@ package com.example.calculator;      // пакет — «адрес» класс
 
 import android.graphics.Color;       // константы цветов (нужен Color.TRANSPARENT)
 import android.os.Bundle;            // Bundle — «коробка» ключ→значение для сохранения данных
+import android.text.TextUtils;       // TextUtils.join — склеить список строк (для истории)
 import android.util.Log;             // запись сообщений в Logcat (журнал)
+import android.view.Menu;            // меню верхней панели
+import android.view.MenuItem;        // пункт меню («История»)
 import android.view.View;            // View — базовый класс любого элемента экрана
 import android.view.ViewGroup;       // ViewGroup — контейнер, в котором лежат другие View
 import android.widget.Button;        // кнопка
+import android.widget.ScrollView;    // прокручиваемый контейнер (для истории)
 import android.widget.TextView;      // текстовое поле
 import android.widget.Toast;         // всплывающее сообщение внизу экрана
 
 import androidx.activity.EdgeToEdge;             // рисовать приложение на весь экран
 import androidx.activity.SystemBarStyle;         // цвет значков в статус-баре
 import androidx.annotation.NonNull;              // пометка «не может быть null»
+import androidx.appcompat.app.AlertDialog;       // всплывающее окно (окно истории)
 import androidx.appcompat.app.AppCompatActivity; // базовый класс экрана
 import androidx.core.content.ContextCompat;      // достать цвет из ресурсов
 import androidx.core.graphics.Insets;            // размеры системных панелей
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.google.android.material.appbar.MaterialToolbar; // верхняя панель с заголовком
+import com.google.android.material.appbar.MaterialToolbar;               // верхняя панель
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;    // построитель окна
+
+import java.util.ArrayList;          // список (для истории)
 ```
 
 ## Объявление класса
@@ -105,9 +115,13 @@ private static final String KEY_RESULT = "result";           // данные к�
 private static final String KEY_RESULT_IS_ERROR = "result_is_error";
 private static final String KEY_JUST_EVALUATED = "just_evaluated";
 private static final String KEY_DEGREE_MODE = "degree_mode";
+private static final String KEY_HISTORY = "history";                         // история
+private static final String KEY_HISTORY_DIALOG_OPEN = "history_dialog_open"; // открыто ли окно истории
 
 private static final int MAX_LENGTH = 200;   // максимальная длина выражения
+private static final int MAX_HISTORY = 50;   // максимум записей в истории (Bundle — для небольших данных)
 private static final String MINUS = "−";     // минус с кнопки (это не дефис "-")
+private static final String HISTORY_SEPARATOR = " = ";  // разделитель в записи "2+3 = 5"
 ```
 
 `private` — видно только внутри класса, `static` — общее для класса, `final` — нельзя изменить. Вместе это константа.
@@ -118,15 +132,20 @@ private static final String MINUS = "−";     // минус с кнопки (э
 private TextView expressionView;   // поле, где показано выражение
 private TextView resultView;       // поле, где показан результат или ошибка
 private Button angleModeButton;    // кнопка RAD/DEG
+private ScrollView historyScroll;  // прокрутка истории — есть только в портретной разметке
+private TextView historyView;      // текст истории — в альбомной разметке его нет (будет null)
+private AlertDialog historyDialog; // окно истории (null, пока его не открывали)
 
 private String expression = "";          // что ввёл пользователь, например "2+sin(30"
 private String result = "";              // результат ("4") или текст ошибки
 private boolean resultIsError = false;   // true — в result лежит ошибка
 private boolean justEvaluated = false;   // true — только что нажали "="
 private boolean degreeMode = false;      // false = радианы, true = градусы
+private ArrayList<String> history = new ArrayList<>(); // история: "2+3 = 5", старые в начале
+private boolean historyDialogWasOpen = false;          // было ли открыто окно истории до поворота
 ```
 
-**Ключевая идея:** всё, что на экране, строится из этих 5 переменных. Поэтому при повороте достаточно сохранить только их.
+**Ключевая идея:** всё, что на экране, строится из этих переменных. Поэтому при повороте достаточно сохранить только их.
 
 ## onCreate — создание экрана
 
@@ -135,21 +154,35 @@ private boolean degreeMode = false;      // false = радианы, true = гр�
 protected void onCreate(Bundle savedInstanceState) {
     // savedInstanceState = null при первом запуске, после поворота — сохранённые данные
     super.onCreate(savedInstanceState);          // обязательно: родитель делает свою инициализацию
-    Log.d(TAG, "onCreate");                      // пишем в журнал «onCreate»
+    Log.d(TAG, "onCreate, savedInstanceState = " + savedInstanceState);
     EdgeToEdge.enable(this, SystemBarStyle.dark(Color.TRANSPARENT)); // на весь экран, светлые значки
     setContentView(R.layout.activity_main);      // подключаем XML-разметку; Android сам выберет
                                                  // layout/ или layout-land/ по ориентации
 
     MaterialToolbar toolbar = findViewById(R.id.toolbar); // находим элемент по его id из XML
-    setSupportActionBar(toolbar);                // делаем его «шапкой» экрана
+    setSupportActionBar(toolbar);                // делаем его «шапкой» экрана (там кнопка «История»)
     expressionView = findViewById(R.id.expression);       // запоминаем ссылки на элементы
     resultView = findViewById(R.id.result);
     angleModeButton = findViewById(R.id.btn_angle_mode);
+    historyScroll = findViewById(R.id.history_scroll);    // в альбомной разметке вернёт null
+    historyView = findViewById(R.id.history);             // в альбомной разметке вернёт null
     ViewGroup keypad = findViewById(R.id.keypad);         // контейнер со всеми кнопками
 
+    if (historyView != null) {                   // проверка на null: поле есть только в портрете
+        historyView.setOnClickListener(v -> showHistoryDialog()); // нажали на историю → окно
+    }
     applySystemBarInsets(findViewById(R.id.main), toolbar, keypad); // отступы от системных панелей
     setClickListenerOnButtons(keypad);           // назначить обработчик всем кнопкам
-    render();                                    // нарисовать начальное состояние
+
+    // Первый запуск: savedInstanceState == null, восстанавливать нечего.
+    // После поворота: в Bundle лежат данные из onSaveInstanceState.
+    if (savedInstanceState != null) {            // ← ПРОВЕРКА НА NULL
+        restoreState(savedInstanceState);        // достаём данные из Bundle
+    }
+    render();                                    // нарисовать состояние на экране
+    if (historyDialogWasOpen) {
+        showHistoryDialog();                     // окно истории было открыто — открыть снова
+    }
 }
 ```
 
@@ -332,6 +365,7 @@ private void calculate() {
         result = ExpressionEvaluator.format(ExpressionEvaluator.evaluate(expression, degreeMode));
         resultIsError = false;
         justEvaluated = true;
+        addToHistory(getString(R.string.history_entry, expression, result)); // в историю: "2+3 = 5"
     } catch (CalculationException e) {           // если вычислитель сообщил об ошибке —
         result = e.getMessage();                 // берём её текст, например "Деление на ноль"
         resultIsError = true;
@@ -371,6 +405,12 @@ private void render() {
         String preview = preview();
         resultView.setText(preview == null ? "" : getString(R.string.result_format, preview));
     }
+
+    // В альбомной разметке поля истории нет — findViewById вернул null, поэтому проверяем
+    if (historyView != null && historyScroll != null) {
+        historyView.setText(TextUtils.join("\n", history));       // записи через перенос строки
+        historyScroll.post(() -> historyScroll.fullScroll(View.FOCUS_DOWN)); // к последней записи
+    }
 }
 ```
 
@@ -395,27 +435,75 @@ private String preview() {
 ```java
 @Override
 protected void onSaveInstanceState(@NonNull Bundle outState) { // вызывается ПЕРЕД уничтожением
-    super.onSaveInstanceState(outState);           // родитель сохраняет своё
-    Log.d(TAG, "onSaveInstanceState: " + expression);
+    super.onSaveInstanceState(outState);               // родитель сохраняет своё
     outState.putString(KEY_EXPRESSION, expression);    // кладём в Bundle:
     outState.putString(KEY_RESULT, result);            //   ключ → значение
     outState.putBoolean(KEY_RESULT_IS_ERROR, resultIsError);
     outState.putBoolean(KEY_JUST_EVALUATED, justEvaluated);
     outState.putBoolean(KEY_DEGREE_MODE, degreeMode);
+    outState.putStringArrayList(KEY_HISTORY, history); // ИСТОРИЯ: список строк ArrayList<String>
+    outState.putBoolean(KEY_HISTORY_DIALOG_OPEN,       // открыто ли окно истории
+            historyDialog != null && historyDialog.isShowing()); // сначала проверка на null
+    Log.d(TAG, "onSaveInstanceState: " + outState);
+}
+
+/** Достаёт данные из Bundle. Вызывается из onCreate, только если Bundle не null. */
+private void restoreState(@NonNull Bundle state) {
+    expression = state.getString(KEY_EXPRESSION, "");  // "" — значение по умолчанию
+    result = state.getString(KEY_RESULT, "");
+    resultIsError = state.getBoolean(KEY_RESULT_IS_ERROR, false);
+    justEvaluated = state.getBoolean(KEY_JUST_EVALUATED, false);
+    degreeMode = state.getBoolean(KEY_DEGREE_MODE, false);
+    ArrayList<String> savedHistory = state.getStringArrayList(KEY_HISTORY);
+    if (savedHistory != null) {        // getStringArrayList вернёт null, если ключа нет
+        history = savedHistory;
+    }
+    historyDialogWasOpen = state.getBoolean(KEY_HISTORY_DIALOG_OPEN, false);
+    Log.d(TAG, "restoreState: expression = " + expression + ", history = " + history.size());
 }
 
 @Override
 protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) { // ПОСЛЕ onStart
+    // Второе место, где можно восстанавливать (Bundle здесь никогда не null).
+    // Мы восстановили всё в onCreate, здесь только лог — видно порядок вызовов.
     super.onRestoreInstanceState(savedInstanceState);
-    expression = savedInstanceState.getString(KEY_EXPRESSION, ""); // достаём по ключу,
-    result = savedInstanceState.getString(KEY_RESULT, "");         // "" — если ничего нет
-    resultIsError = savedInstanceState.getBoolean(KEY_RESULT_IS_ERROR);
-    justEvaluated = savedInstanceState.getBoolean(KEY_JUST_EVALUATED);
-    degreeMode = savedInstanceState.getBoolean(KEY_DEGREE_MODE);
-    Log.d(TAG, "onRestoreInstanceState: " + expression);
-    render();                                      // показать восстановленное
+    Log.d(TAG, "onRestoreInstanceState");
 }
 ```
+
+Подробно о Bundle, проверках на null и истории — в отдельном документе «Сохранение данных при повороте, история и XML-разметки» (`docs/state-history-layouts.md`).
+
+## История вычислений
+
+```java
+private void addToHistory(String entry) {
+    int size = history.size();
+    if (size > 0 && history.get(size - 1).equals(entry)) {
+        return;                    // повторное нажатие "=" не дублирует запись
+    }
+    history.add(entry);            // добавляем в конец
+    if (history.size() > MAX_HISTORY) {
+        history.remove(0);         // самые старые удаляем
+    }
+}
+
+@Override
+public boolean onCreateOptionsMenu(Menu menu) {             // создать меню верхней панели
+    getMenuInflater().inflate(R.menu.main_menu, menu);       // из res/menu/main_menu.xml
+    return true;
+}
+
+@Override
+public boolean onOptionsItemSelected(@NonNull MenuItem item) { // нажали пункт меню
+    if (item.getItemId() == R.id.action_history) {
+        showHistoryDialog();                                   // показать окно истории
+        return true;
+    }
+    return super.onOptionsItemSelected(item);
+}
+```
+
+`showHistoryDialog()` строит окно `MaterialAlertDialogBuilder` со списком записей (новые сверху), кнопками «Очистить» и «Закрыть». Нажатие на запись вызывает `useHistoryEntry(...)`: выражение из записи (`"2+3 = 5"` → `"2+3"`) возвращается в поле ввода.
 
 ## Методы жизненного цикла
 
@@ -426,6 +514,8 @@ protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) { // �
 @Override protected void onStop()    { super.onStop();    Log.d(TAG, "onStop"); }    // не виден
 @Override protected void onDestroy() { super.onDestroy(); Log.d(TAG, "onDestroy"); } // уничтожается
 ```
+
+В `onDestroy` перед `super.onDestroy()` ещё закрывается окно истории: `if (historyDialog != null) historyDialog.dismiss();`. Иначе при повороте окно «утечёт» вместе со старой Activity (ошибка WindowLeaked в Logcat).
 
 В файле каждый метод записан в несколько строк, суть та же: они только пишут своё имя в журнал, чтобы на защите показать жизненный цикл.
 
@@ -819,6 +909,8 @@ dependencies {
 | Как Android выбирает layout-land? | По квалификатору папки ресурсов (land = альбомная ориентация). |
 | Как учитывается приоритет? | Рекурсивный спуск: свой метод на каждый уровень приоритета. |
 | Как обрабатываются ошибки? | Вычислитель бросает `CalculationException`, Activity ловит её в try/catch и показывает текст. |
+| Как сохраняется история? | `putStringArrayList("history", history)` в `onSaveInstanceState`, восстанавливается `getStringArrayList` с проверкой на null. |
+| Зачем `if (savedInstanceState != null)`? | При первом запуске Bundle равен null, без проверки будет `NullPointerException`. |
 | Почему не библиотека? | Разрешено, но не обязательно; свой парсер даёт понятные ошибки на русском. |
 
 ## Могут попросить что-то изменить прямо на защите

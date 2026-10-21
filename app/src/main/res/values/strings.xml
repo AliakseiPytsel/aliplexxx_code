@@ -6,4 +6,10 @@
     <string name="angle_mode_deg">DEG</string>
     <string name="backspace">Удалить символ</string>
     <string name="expression_too_long">Слишком длинное выражение</string>
+    <string name="history">История</string>
+    <string name="history_hint">Здесь появится история вычислений</string>
+    <string name="history_empty">История пока пустая</string>
+    <string name="history_clear">Очистить</string>
+    <string name="close">Закрыть</string>
+    <string name="history_entry">%1$s = %2$s</string>
 </resources>
